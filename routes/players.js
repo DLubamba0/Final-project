@@ -1,40 +1,103 @@
-const express = require('express');
+const express = require("express");
+const { Player, Team } = require("../models");
+const authMiddleware = require("../middleware/authMiddleware");
+const roleMiddleware = require("../middleware/roleMiddleware");
+
 const router = express.Router();
-const { Player, Team } = require('../models');
 
-// GET all
-router.get('/', async (req, res) => {
-  const players = await Player.findAll({ include: Team });
-  res.json(players);
+router.get("/", async (req, res) => {
+  try {
+    const players = await Player.findAll({
+      include: Team
+    });
+
+    res.json(players);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
-// GET one
-router.get('/:id', async (req, res) => {
-  const player = await Player.findByPk(req.params.id, { include: Team });
-  if (!player) return res.status(404).json({ error: 'Not found' });
-  res.json(player);
+router.get("/:id", async (req, res) => {
+  try {
+    const player = await Player.findByPk(req.params.id, {
+      include: Team
+    });
+
+    if (!player) {
+      return res.status(404).json({ message: "Player not found" });
+    }
+
+    res.json(player);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
-// POST
-router.post('/', async (req, res) => {
-  const player = await Player.create(req.body);
-  res.status(201).json(player);
-});
+router.post(
+  "/",
+  authMiddleware,
+  roleMiddleware(["admin"]),
+  async (req, res) => {
+    try {
+      const { name, position, TeamId } = req.body;
 
-// PUT
-router.put('/:id', async (req, res) => {
-  const player = await Player.findByPk(req.params.id);
-  if (!player) return res.status(404).json({ error: 'Not found' });
-  await player.update(req.body);
-  res.json(player);
-});
+      if (!name || !position || !TeamId) {
+        return res.status(400).json({
+          message: "Name, position, and TeamId are required"
+        });
+      }
 
-// DELETE
-router.delete('/:id', async (req, res) => {
-  const player = await Player.findByPk(req.params.id);
-  if (!player) return res.status(404).json({ error: 'Not found' });
-  await player.destroy();
-  res.json({ message: 'Deleted' });
-});
+      const player = await Player.create({
+        name,
+        position,
+        TeamId
+      });
+
+      res.status(201).json(player);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
+
+router.put(
+  "/:id",
+  authMiddleware,
+  roleMiddleware(["admin"]),
+  async (req, res) => {
+    try {
+      const player = await Player.findByPk(req.params.id);
+
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+
+      await player.update(req.body);
+      res.json(player);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
+
+router.delete(
+  "/:id",
+  authMiddleware,
+  roleMiddleware(["admin"]),
+  async (req, res) => {
+    try {
+      const player = await Player.findByPk(req.params.id);
+
+      if (!player) {
+        return res.status(404).json({ message: "Player not found" });
+      }
+
+      await player.destroy();
+      res.json({ message: "Player deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
 
 module.exports = router;
